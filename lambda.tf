@@ -35,7 +35,7 @@ resource "aws_iam_policy" "LambdaInspectorPolicy" {
   },
   {
     "Action": [
-      "inspector:DescribeFindings",
+      "inspector:DescribeFindings"
     ],
     "Resource": "*",
     "Effect": "Allow"
@@ -54,10 +54,10 @@ resource "aws_iam_role_policy_attachment" "SSM-role-policy-attach" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMFullAccess"
 }
 
-resource "aws_iam_role_policy_attachment" "lambda-policy-attach" {
-  role       = "${aws_iam_role.LambdaInspectorRole.name}"
-  policy_arn = "arn:aws:iam::aws:policy/AWSLambdaBasicExecutionRole"
-}
+# resource "aws_iam_role_policy_attachment" "lambda-policy-attach" {
+#   role       = "${aws_iam_role.LambdaInspectorRole.name}"
+#   policy_arn = "arn:aws:iam::aws:policy/AWSLambdaBasicExecutionRole"
+# }
 
 data "null_data_source" "LambdaInspectorFile" {
   inputs = {
@@ -91,21 +91,20 @@ resource "aws_lambda_function" "LambdaInspector" {
   runtime          = "nodejs10.x"
   timeout          = 60
 
-  environment {
-    variables = {
-      MAX_AGE  = "${var.rotateAge}"
-      EMAIL    = "${var.adminEmail}"
-    }
-  }
-
 }
 
-resource "aws_lambda_permission" "allowRotateIAMKeysRule" {
-    statement_id = "AllowExecutionFromCloudWatchRotateIAMKeysRule"
-    action = "lambda:InvokeFunction"
-    function_name = "${aws_lambda_function.LambdaInspector.function_name}"
-    principal = "events.amazonaws.com"
-    source_arn = "${aws_cloudwatch_event_rule.RotateIAMKeysRule.arn}"
+resource "aws_lambda_permission" "allowSNSInspector" {
+    statement_id    = "AllowExecutionFromSNSInspector"
+    action          = "lambda:InvokeFunction"
+    function_name   = "${aws_lambda_function.LambdaInspector.function_name}"
+    principal       = "sns.amazonaws.com"
+    source_arn      = "${aws_sns_topic.inspector.arn}"
+}
+
+resource "aws_sns_topic_subscription" "lambda" {
+  topic_arn = "${aws_sns_topic.inspector.arn}"
+  protocol  = "lambda"
+  endpoint  = "${aws_lambda_function.LambdaInspector.arn}"
 }
 
 

@@ -6,11 +6,12 @@ variable "aws_profile" {
   default = "torus"
 }
 
-variable "adminEmail" {
-  default = "erick.yataco.s@gmail.com"
+variable "path_to_pub_key" {
+  default = ""
 }
 
-variable "rotateAge" {
-  default = "90"
+variable "path_to_private_key" {
+  default = ""
 }
+
 

@@ -21,7 +21,7 @@ EOF
 
 resource "aws_iam_role_policy_attachment" "ec2-SSM-role-policy-attach" {
   role       = "${aws_iam_role.CloudWatchAgentAdminRole.name}"
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2RoleForSSM"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
 }
 
 resource "aws_iam_role_policy_attachment" "inspector-role-policy-attach" {
@@ -43,32 +43,43 @@ resource "aws_iam_instance_profile" "inspector_profile" {
   name = "ec2-instance-profile"
   role = "${aws_iam_role.CloudWatchAgentAdminRole.name}"
 }
-# resource "aws_key_pair" "inspectkey" {
-#   public_key = "${file(var.PATH_TO_PUB_KEY)}"
-# }
+resource "aws_key_pair" "inspectkey" {
+  public_key = "${file(var.path_to_pub_key)}"
+}
+
+resource "aws_security_group" "AllowSSH" {
+  name        = "AllowSSH"
+  description = "security group for prometheus instance"
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+data "template_file" "init" {
+    template = "${file("install_inspector.sh")}"
+}
 
 resource "aws_instance" "inspector-instance" {
-  ami = "ami-d80c35bd" #"amzn2-ami-hvm-2.0.20180622.1-x86_64-ebs()"
-  instance_type = "t2.micro"
-  iam_instance_profile  = "${aws_iam_instance_profile.inspector_profile.id}"
-  #key_name = "${aws_key_pair.inspectkey.key_name}"
-  security_groups = ["inspect"]
+  ami                       = "ami-13be557e"  
+  instance_type             = "t2.micro"
+  iam_instance_profile      = "${aws_iam_instance_profile.inspector_profile.id}"
+  key_name                  = "${aws_key_pair.inspectkey.key_name}"
+  vpc_security_group_ids    =["${aws_security_group.AllowSSH.id}"]
+  user_data                 = "${data.template_file.init.rendered}"
+
 
   tags = {
     Name = "InspectInstances"
     Env  = "Dev"
-  }
-
-  provisioner "remote-exec" {
-    connection {
-      type = "ssh"
-      user = "ubuntu"
-      #private_key = "${file("${var.PATH_TO_PRIVATE_KEY}")}"
-      host = "${aws_instance.inspector-instance.public_ip}"
-    }
-    inline = [
-      "wget https://d1wk0tztpsntt1.cloudfront.net/linux/latest/install -P /tmp/",
-      "sudo bash /tmp/install"
-    ]
   }
 }

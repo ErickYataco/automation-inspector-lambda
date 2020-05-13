@@ -5,3 +5,4 @@ ssh/
 .terraform
 *.zip
 node_modules
+inspector-*
